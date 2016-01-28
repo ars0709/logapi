@@ -6,7 +6,7 @@
  * method - POST
  * params - email, password
  */
- $app->post('/login', function () use ($app)  {    
+ $app->post('/login', function () use ($app)  {
   try {
     $request_params = array();
     $request_params = $_REQUEST;
@@ -22,9 +22,12 @@
     $stmt = $db->query($sql);
     $data = json_decode(json_encode($stmt->fetchAll(PDO::FETCH_OBJ)),true);
     $db = null;
+
     if (passHash::check_password($data[0]['password_hash'], $request_params['password'])) {
-        $_SESSION["company"] = $data[0]['il_company_acc'];
-    	response($data,'Login-success',true);
+//        $_SESSION["company"] = $data[0]['il_company_acc'];
+        
+        $response->header('Access-Control-Allow-Origin', '*');
+        $response->write(json_encode(response($data,'Login-success',true)));
     }else{
     	response('Invalid User Name / Password','Login-Failed',false);
     }

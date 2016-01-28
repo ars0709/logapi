@@ -1,5 +1,6 @@
 <?php
 ini_set('display_errors','on');
+
 require 'Slim/Slim.php';
 \Slim\Slim::registerAutoloader();
 $app = new \Slim\Slim();
@@ -7,13 +8,49 @@ date_default_timezone_set('UTC');
 require 'Slim/Middleware/jsonP.php';
 require 'Slim/Middleware/bitConvert.php';
 require 'Slim/Extras/Middleware/HttpBasicAuthRoute.php';
+// require 'CorsSlim.php';
 include 'includes/connect.php';
 $user_id='';
 $company_id='';
 
-session_cache_limiter(false);
-session_start();
-//cek jika data sudah ada
+if (isset($_SERVER['HTTP_ORIGIN'])) {
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+    header('Access-Control-Allow-Credentials: true');
+    header('Access-Control-Max-Age: 86400');    // cache for 1 day
+}
+// Access-Control headers are received during OPTIONS requests
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+
+    if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']))
+        header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");         
+
+    if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']))
+        header("Access-Control-Allow-Headers: {$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']}");
+
+}
+
+
+function getData($qry,$message){
+    try {
+        $db = getConnection();
+        $stmt = $db->query($qry);
+        $data = $stmt->fetchAll(PDO::FETCH_OBJ);
+        $db = null;
+        $x=response($data ,'Get '.$message,true);
+        // $app->response()->header('Content-Type', 'application/json');
+        return  $x;
+        // response($data ,'Get '.$message,true);
+    } catch(PDOException $e) {
+        
+         echo json_encode(array(
+     's' => 0,
+     'type' => 'Error get',
+     'data' => $e->getMessage()
+    ));
+        // response($e->getMessage() ,'Error Get '.$message,false);        
+    }
+}
+
 function dataExists($qry){
     $sql =$qry;
     $db = getConnection();
@@ -29,21 +66,38 @@ function validateApiKey($key) {
     $sth->execute();
     return $sth->rowCount();
 }
+
 function response($message,$typeMessage,$err){
-	if (!$err||$err==''){
-		echo json_encode(array(
-			's' => 0,
-			'type' => $typeMessage,
-			'message' => $message
-		));
-	}else{
-		echo json_encode(array(
-		's' => 1,
-		'type' => $typeMessage,
-		'data' => $message
-	));
-	}
+    if (!$err||$err==''){
+       return array(
+            's' => 0,
+            'type' => $typeMessage,
+            'message' => $message
+        );
+    }else{
+       return array(
+        's' => 1,
+        'type' => $typeMessage,
+        'data' => $message
+    );
+    }
 }
+
+// function response($message,$typeMessage,$err){
+// 	if (!$err||$err==''){
+// 		echo json_encode(array(
+// 			's' => 0,
+// 			'type' => $typeMessage,
+// 			'message' => $message
+// 		));
+// 	}else{
+// 		echo json_encode(array(
+// 		's' => 1,
+// 		'type' => $typeMessage,
+// 		'data' => $message
+// 	));
+// 	}
+// }
 function requiredFields($required_fields) {
 	 $error = false;
     $error_fields = "";
@@ -61,9 +115,10 @@ function requiredFields($required_fields) {
         }
     }
     if ($error) {
-        $response = array();
+        
         $app = \Slim\Slim::getInstance();
-        response('Required field(s) : ' . substr($error_fields, 0, -2) . ' is missing or empty','Missing Fields',false);
+        $response = $app->response();    
+        $response->write(json_encode(response('Required field(s) : ' . substr($error_fields, 0, -2) . ' is missing or empty','Missing Fields',false)));
         $app->stop();
     }
 }
@@ -74,12 +129,16 @@ $authKey = function (\Slim\Route $route) {
     if (isset($headers['Authorization'])) {
     	$key = $headers['Authorization'];
 	    if (validateApiKey($key)==0) {
-	      response('Api Key Error ','Authorization',false);
+          $response = $app->response();
+          $response->write(json_encode(response('Api Key Error ','Authorization',false)));
 	      $app->stop();
 	    }
 		
     }else{
-    	response('Api Key is missing ','Authorization',false);
+            $response = $app->response();
+          $response->write(json_encode(response('Api Key is missing ','Authorization',false)));
+          
+    	
         $app->stop();
     }
 };
@@ -88,9 +147,9 @@ $authKey = function (\Slim\Route $route) {
 require_once 'includes/require_params.php';
 foreach (glob("routes/*.php") as $filename){require_once $filename;}
 // end 
-
 $app->add(new \Slim\Middleware\JSONPMiddleware());
 $app->add(new \Slim\Middleware\BitConvertMiddleware());
+
 $app->add(new \Slim\Middleware\SessionCookie(array(
     'expires' => '20 minutes',
     'path' => '/',
@@ -102,5 +161,9 @@ $app->add(new \Slim\Middleware\SessionCookie(array(
     'cipher' => MCRYPT_RIJNDAEL_256,
     'cipher_mode' => MCRYPT_MODE_CBC
 )));
+$app->map('/:x+', function($x) {
+    http_response_code(200);
+})->via('OPTIONS');
+$response = $app->response();    
 $app->contentType('application/json');
 $app->run();

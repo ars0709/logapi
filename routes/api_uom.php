@@ -1,38 +1,23 @@
 <?php 
 
-
 $app->get('/uom/:comp',$authKey, function ($comp) use ($app)  {  
     $sql = "select * FROM il_uom where il_company_acc='".$comp."'";
-    try {
-        $db = getConnection();
-        $stmt = $db->query($sql);
-        $data = $stmt->fetchAll(PDO::FETCH_OBJ);
-        $db = null;
-        $app->response()->header('Content-Type', 'application/json');
-        response($data ,'Get UOM',true);
-    } catch(PDOException $e) {
-    	response($e->getMessage() ,'Error Get UOM',false);        
-    }
+    $xData=getData($sql,'UOM');
+    $response = $app->response();
+    $response->write(json_encode($xData));
 });
 
 $app->get('/uom/:comp/:id',$authKey, function ($comp,$id) use ($app)  { 
-
     $sql = "select * FROM il_uom where il_company_acc='".$comp."' and il_uom_id='".$id."'";
-    try {
-        $db = getConnection();
-        $stmt = $db->query($sql);
-        $data = $stmt->fetchAll(PDO::FETCH_OBJ);
-        $db = null;
-        $app->response()->header('Content-Type', 'application/json');
-        response($data ,'Get UOM',true);
-    } catch(PDOException $e) {
-    	response($e->getMessage() ,'Error Get UOM',false);
-    }
+    $xData=getData($sql,'UOM');
+    $response = $app->response();
+    $response->write(json_encode($xData));
 });
-$app->post('/uom/:comp', $authKey, function ($comp) use ($app)  {    
-  try {
-    // ambil parameter request 
 
+
+$app->post('/uom/:comp', $authKey, function ($comp) use ($app)  {    
+    // echo 'o';
+  try {
     $request_params = array();
     $request_params = $_REQUEST;
     if ($_SERVER['REQUEST_METHOD'] == 'PUT') {
@@ -55,15 +40,19 @@ $app->post('/uom/:comp', $authKey, function ($comp) use ($app)  {
         $stmt->execute();
         $data= $db->lastInsertId();
         $db = null;
-        response($data,'Insert UOM Success',true);
+        $response = $app->response();
+        $response->write(json_encode(response($data,'Insert UOM Success',true)));
      }
      else{
-        $app->response()->header('Content-Type', 'application/json');
-        response('This Id Already Exists' ,'INSERT UOM',false);
+        $response = $app->response();
+        $response->write(json_encode(response('This Id Already Exists' ,'INSERT UOM',false)));
+
+        
     }
    } catch(PDOException $e) {
     $app->response()->status(400);
     $app->response()->header('X-Status-Reason', $e->getMessage());
+    $app->response()->write('xxx');
   }
 });
 
@@ -88,7 +77,9 @@ try {
         $stmt->execute();
         $data= $db->lastInsertId();
         $db = null;
-        response($data,'Update UOM Success',true);
+        $response = $app->response();        
+        $response->write(json_encode(response($data,'Update UOM Success',true)));
+        
 } catch(PDOException $e) {
     $app->response()->status(400);
     $app->response()->header('X-Status-Reason', $e->getMessage());
@@ -106,7 +97,8 @@ try {
         $stmt->execute();
         $data= $db->lastInsertId();
         $db = null;
-        response($data,'Delete UOM Success',true);
+        $response = $app->response();
+        $response->write(json_encode(response($data,'Delete UOM Success',true)));
 } catch(PDOException $e) {
     $app->response()->status(400);
     $app->response()->header('X-Status-Reason', $e->getMessage());
